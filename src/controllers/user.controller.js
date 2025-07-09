@@ -27,80 +27,22 @@ import fs from "fs";
 import geminiResponse from "../../gemini.js";
 
 export const updateAssistant = async (req, res) => {
-  let uploadedFilePath = null;
-  
   try {
-    console.log("=== UPDATE ASSISTANT DEBUG ===");
-    console.log("req.body:", req.body);
-    console.log("req.file:", req.file);
-    
-    const { assistantName, imageURL } = req.body;
-    
+    const { assistantName } = req.body;
     if (!assistantName) {
       return res.status(400).json({ message: "Assistant name is required" });
     }
-
-    let assistantImage;
-
-    if (req.file && req.file.path) {
-      uploadedFilePath = req.file.path; // Store for cleanup
-      console.log("Uploading file to Cloudinary:", req.file.path);
-      
-      assistantImage = await uploadOnCloudinary(req.file.path);
-      console.log("Cloudinary result:", assistantImage);
-      
-      if (!assistantImage) {
-        return res.status(500).json({ message: "Cloudinary upload failed" });
-      }
-      
-      // Clean up local file after successful upload
-      try {
-        fs.unlinkSync(uploadedFilePath);
-        console.log("Local file cleaned up:", uploadedFilePath);
-      } catch (cleanupError) {
-        console.warn("Failed to cleanup file:", cleanupError.message);
-      }
-      
-    } else if (imageURL) {
-      assistantImage = imageURL;
-    } else {
-      return res.status(400).json({ message: "No image provided" });
-    }
-
     const user = await User.findByIdAndUpdate(
       req.userId,
-      {
-        assistantName,
-        assistantImage,
-      },
+      { assistantName },
       { new: true }
     ).select("-password");
-
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-
     return res.status(200).json(user);
-    
   } catch (error) {
-    console.error("=== FULL ERROR ===");
-    console.error("Error message:", error.message);
-    console.error("Error stack:", error.stack);
-    
-    // Clean up file if upload failed
-    if (uploadedFilePath && fs.existsSync(uploadedFilePath)) {
-      try {
-        fs.unlinkSync(uploadedFilePath);
-        console.log("Cleaned up file after error:", uploadedFilePath);
-      } catch (cleanupError) {
-        console.warn("Failed to cleanup file after error:", cleanupError.message);
-      }
-    }
-    
-    return res.status(500).json({
-      message: "updateAssistant error",
-      error: error.message,
-    });
+    return res.status(500).json({ message: "Error updating assistant", error: error.message });
   }
 };
 
